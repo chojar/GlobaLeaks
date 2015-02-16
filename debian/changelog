@@ -1,3 +1,9 @@
+globaleaks (2.60.62) wheezy; urgency=medium
+
+  * New upstream release
+
+ -- GlobaLeaks software signing key <info@globaleaks.org>  Mon, 16 Feb 2015 23:03:02 +0100
+
 globaleaks (2.60.61) wheezy; urgency=medium
 
   * New upstream release
