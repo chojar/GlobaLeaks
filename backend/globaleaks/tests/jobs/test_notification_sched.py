@@ -2,18 +2,16 @@ from twisted.internet.defer import inlineCallbacks
 
 from globaleaks.tests import helpers
 
-from globaleaks.handlers import submission
-from globaleaks.jobs import delivery_sched
 from globaleaks.jobs.mailflush_sched import MailflushSchedule
 from globaleaks.jobs.notification_sched import NotificationSchedule
-from globaleaks.settings import GLSetting
+
 
 class TestNotificationSchedule(helpers.TestGLWithPopulatedDB):
 
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestGLWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_notification_schedule(self):

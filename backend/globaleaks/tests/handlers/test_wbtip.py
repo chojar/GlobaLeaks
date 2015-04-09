@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-from twisted.internet.defer import inlineCallbacks
-
 import json
 
-from globaleaks.rest import requests, errors
+from twisted.internet.defer import inlineCallbacks
 from globaleaks.tests import helpers
-from globaleaks.handlers import admin, wbtip
-from globaleaks.settings import GLSetting, transact_ro
-from globaleaks.models import ReceiverTip
+from globaleaks.handlers import wbtip
+
 
 class TestWBTipInstance(helpers.TestHandlerWithPopulatedDB):
     _handler = wbtip.WBTipInstance
@@ -15,7 +12,7 @@ class TestWBTipInstance(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_get(self):
@@ -32,7 +29,7 @@ class TestWBTipCommentCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_get(self):
@@ -62,7 +59,7 @@ class TestWBTipMessageCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_get(self):
@@ -94,7 +91,7 @@ class TestWBTipReceiversCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_get(self):
