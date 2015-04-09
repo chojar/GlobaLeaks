@@ -7,20 +7,6 @@ angular.module('resourceServices.authentication', [])
       function Session(){
         var self = this;
 
-        var setCookie = function(name, value) {
-          /**
-           * We set the cookie to be HTTPS only if we are accessing the
-           * globaleaks node over HTTPS.
-           * If we are not that means that we are accessing it via it's Tor
-           * Hidden Service and we don't need to set the cookie HTTPS only as
-           * all requests will always be encrypted end to end.
-           * */
-          $.cookie(name, value);
-          if(window.location.protocol === 'https:') {
-            $.cookie(name, value, {secure: true});
-          }
-        };
-
         $rootScope.login = function(username, password, role, cb) {
           return $http.post('/authentication', {'username': username,
                                                 'password': password,
@@ -46,7 +32,7 @@ angular.module('resourceServices.authentication', [])
                 if (self.password_change_needed) {
                     self.auth_landing_page = '/receiver/firstlogin';
                 } else {
-                    self.auth_landing_page = '/receiver/activities';
+                    self.auth_landing_page = '/receiver/tips';
                 }
               }
               if (self.role == 'wb') {
@@ -100,7 +86,7 @@ angular.module('resourceServices.authentication', [])
 
         };
 
-        self.headers = function() {
+        self.get_auth_headers = function() {
           var h = {};
 
           if (self.id) {
@@ -117,6 +103,8 @@ angular.module('resourceServices.authentication', [])
 
           return h;
         };
+
+        $rootScope.get_auth_headers = self.get_auth_headers;
 
       };
 
@@ -254,8 +242,8 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
   factory('Submission', ['$resource', '$filter', '$location', 'Authentication', 'Node', 'Contexts', 'Receivers',
   function($resource, $filter, $location, Authentication, Node, Contexts, Receivers) {
 
-    var submissionResource = $resource('/submission/:submission_id/',
-        {submission_id: '@id'},
+    var submissionResource = $resource('/submission/:token_id/',
+        {token_id: '@token_id'},
         {submit:
           {method: 'PUT'}
     });
@@ -287,6 +275,7 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
       self.current_context_receivers = [];
       self.current_submission = null; 
       self.receivers_selected = {};
+      self.uploading = false;
 
       var setCurrentContextReceivers = function() {
         self.receivers_selected = {};
@@ -333,7 +322,7 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
           Receivers.query(function(receivers){
             self.receivers = [];
             forEach(receivers, function(receiver){
-              if (receiver.gpg_key_status !== 'enabled') {
+              if (receiver.pgp_key_status !== 'enabled') {
                 receiver.missing_pgp = true;
               }
               self.receivers.push(receiver);
@@ -353,24 +342,25 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
       self.create = function(cb) {
         self.current_submission = new submissionResource({
           context_id: self.current_context.id,
-          wb_steps: _.clone(self.current_context.steps),
-          files: [], finalize: false, receivers: []
+          wb_steps: self.current_context.steps,
+          receivers: [],
+          human_captcha_answer: 0
         });
 
         setCurrentContextReceivers();
 
         self.current_submission.$save(function(submissionID){
-          _.each(self.current_context.fields, function(field, k) {
+          angular.forEach(self.current_context.fields, function(field, k) {
             if (field.type === "checkboxes") {
               self.current_context.fields[k].value = {};
             }
           });
-          self.current_submission.wb_steps = _.clone(self.current_context.steps);
+
+          self.current_submission.wb_steps = self.current_context.steps;
 
           if (cb)
             cb();
         });
-
       };
 
       /**
@@ -394,7 +384,7 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
         self.receivers = [];
         // remind this clean the collected list of receiver_id
         self.current_submission.receivers = [];
-        _.each(self.receivers_selected, function(selected, id){
+        angular.forEach(self.receivers_selected, function(selected, id){
           if (selected) {
             self.current_submission.receivers.push(id);
           }
@@ -457,17 +447,11 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
 
           commentsResource.query(tipID, function(commentsCollection){
             self.tip.comments = commentsCollection;
-
-            // XXX perhaps make this return a lazyly instanced item.
-            // look at $resource code for inspiration.
             fn(self.tip);
           });
 
           messageResource.query(tipID, function(messageCollection){
             self.tip.messages = messageCollection;
-
-            // XXX perhaps make this return a lazyly instanced item.
-            // look at $resource code for inspiration.
             fn(self.tip);
           });
 
@@ -546,7 +530,7 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
           commentsResource.query({}, function(commentsCollection){
             self.tip.comments = commentsCollection;
 
-          })
+          });
 
           fn(self.tip);
 
@@ -642,19 +626,17 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
         context.description = "";
         context.steps = [];
         context.receivers = [];
-        context.file_max_download = 3;
-        context.tip_max_access = 500;
         context.select_all_receivers = false;
         context.tip_timetolive = 15;
-        context.submission_timetolive = 48;
         context.receiver_introduction = "";
-        context.postpone_superpower = false;
-        context.can_delete_submission = false;
+        context.can_postpone_expiration = true;
+        context.can_delete_submission = true;
         context.maximum_selectable_receivers = 0;
         context.show_small_cards = false;
         context.show_receivers = true;
         context.enable_private_messages = true;
         context.presentation_order = 0;
+        context.show_receivers_in_alphabetical_order = false;
         return context;
       };
 
@@ -723,7 +705,7 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
             }
           });
         }
-      }
+      };
 
       self.receiver = adminReceiverResource;
       self.receivers = adminReceiversResource.query();
@@ -736,19 +718,16 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
         receiver.mail_address = '';
         receiver.ping_mail_address = '';
         receiver.can_delete_submission = false;
-        receiver.postpone_superpower = false;
+        receiver.can_postpone_expiration = false;
         receiver.tip_notification = true;
-        receiver.file_notification = true;
-        receiver.comment_notification = true;
-        receiver.message_notification = true;
         receiver.ping_notification = false;
-        receiver.gpg_key_info = '';
-        receiver.gpg_key_fingerprint = '';
-        receiver.gpg_key_remove = false;
-        receiver.gpg_key_armor = '';
-        receiver.gpg_key_expiration = '';
-        receiver.gpg_key_status = 'ignored';
-        receiver.gpg_enable_notification = false;
+        receiver.pgp_key_info = '';
+        receiver.pgp_key_fingerprint = '';
+        receiver.pgp_key_remove = false;
+        receiver.pgp_key_public = '';
+        receiver.pgp_key_expiration = '';
+        receiver.pgp_key_status = 'ignored';
+        receiver.pgp_enable_notification = false;
         receiver.presentation_order = 0;
         receiver.state = 'enable';
         receiver.configuration = 'default';
@@ -798,7 +777,6 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
   factory('cookiesEnabled', function(){
 
   return function() {
-
     var enabled = false;
     document.cookie = 'cookiesenabled=true;';
     if (document.cookie == "") {

@@ -2,14 +2,11 @@ import binascii
 
 import os
 import scrypt
-
 from cryptography.hazmat.primitives import hashes
 from twisted.trial import unittest
-
 from globaleaks.tests import helpers
 from globaleaks.security import get_salt, hash_password, check_password, change_password, check_password_format, SALT_LENGTH, \
                                 directory_traversal_check, GLSecureTemporaryFile, GLSecureFile, crypto_backend
-
 from globaleaks.settings import GLSetting
 from globaleaks.rest import errors
 
@@ -98,8 +95,8 @@ class TestPasswordManagement(unittest.TestCase):
         self.assertRaises(errors.InvalidInputFormat, check_password_format, "12345678") #onlynumbers
         check_password_format("abcde12345")
 
-class TestFilesystemAccess(helpers.TestGL):
 
+class TestFilesystemAccess(helpers.TestGL):
     def test_directory_traversal_failure_on_relative_trusted_path_must_fail(self):
         self.assertRaises(Exception, directory_traversal_check, 'invalid/relative/trusted/path', "valid.txt")
 
@@ -111,7 +108,6 @@ class TestFilesystemAccess(helpers.TestGL):
         directory_traversal_check(GLSetting.static_path, valid_access)
 
 class TestGLSecureFiles(helpers.TestGL):
-
     def test_temporary_file(self):
         a = GLSecureTemporaryFile(GLSetting.tmp_upload_path)
         antani = "0123456789" * 10000

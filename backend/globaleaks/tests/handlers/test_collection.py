@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
-from twisted.internet.defer import inlineCallbacks
-
-import json
-
 import shutil
 
-from globaleaks.rest import requests
+from twisted.internet.defer import inlineCallbacks
 from globaleaks.settings import GLSetting, transact_ro
 from globaleaks.tests import helpers
 from globaleaks.handlers import collection
@@ -17,7 +13,7 @@ class TestCollectionDownload(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @transact_ro
     def get_rtips(self, store):

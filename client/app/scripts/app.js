@@ -1,18 +1,14 @@
 'use strict';
 
-var translations = {
- GLOBALEAKS: "{{NodeName}} makes use of GlobaLeaks software specifically designed to protect the identity of the submitter and of the receiver in the exchange of leaked materials."
-};
-
 var GLClient = angular.module('GLClient', [
     'ngRoute',
     'ui.bootstrap',
     'ui.sortable',
     'ang-drag-drop',
+    'flow',
     'monospaced.elastic',
     'resourceServices',
     'submissionUI',
-    'blueimp.fileupload',
     'pascalprecht.translate',
     'GLClientFilters'
   ]).
@@ -68,12 +64,6 @@ var GLClient = angular.module('GLClient', [
         header_title: 'Receiver Interface',
         header_subtitle: 'Your Tips'
       }).
-      when('/receiver/activities', {
-        templateUrl: 'views/receiver/activities.html',
-        controller: 'ReceiverNotificationCtrl',
-        header_title: 'Receiver Interface',
-        header_subtitle: 'Recent Activities'
-      }).
       when('/admin/landing', {
         templateUrl: 'views/admin/landing.html',
         controller: 'AdminCtrl',
@@ -108,7 +98,7 @@ var GLClient = angular.module('GLClient', [
         templateUrl: 'views/admin/mail.html',
         controller: 'AdminCtrl',
         header_title: 'Administration Interface',
-        header_subtitle: 'Mail Configuration'
+        header_subtitle: 'Email Configuration'
       }).
       when('/admin/advanced_settings', {
         templateUrl: 'views/admin/advanced.html',
@@ -203,13 +193,22 @@ var GLClient = angular.module('GLClient', [
         suffix: '.json'
       });
 
-      $tooltipProvider.options( {appendToBody: true} );
+      $tooltipProvider.options({appendToBody: true});
 }]).
-  run(['$http', '$rootScope', '$route', 'Authentication', function ($http, $rootScope, $route, Authentication) {
+  config(['flowFactoryProvider', function (flowFactoryProvider) {
+    flowFactoryProvider.defaults = {
+        chunkSize: 1 * 1024 * 1024,
+        forceChunkSize: true,
+        generateUniqueIdentifier: function (file) {
+          return Math.random() * 1000000 + 1000000;
+        }
+    }
+}]).
+  run(['$http', '$rootScope', function ($http, $rootScope) {
 
      var globaleaksRequestInterceptor = function(data, headers) {
 
-        headers = angular.extend(headers(), Authentication.headers());
+        headers = angular.extend(headers(), $rootScope.get_auth_headers());
 
         return data;
     };
@@ -222,9 +221,8 @@ var GLClient = angular.module('GLClient', [
            e.preventDefault();
            $rootScope.$broadcast("REFRESH");
        }
-    };
-
-    $(document).bind("keydown", overrideReload);
+    }
+      $(document).bind("keydown", overrideReload);
 
     $rootScope.$on('$routeChangeSuccess', function (event, current, previous) {
         if (current.$$route) {

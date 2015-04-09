@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 from twisted.internet.defer import inlineCallbacks
 
-import json
-
-from globaleaks.rest import requests
 from globaleaks.tests import helpers
-from globaleaks.handlers import receiver, admin, submission
-from globaleaks.settings import GLSetting
-from globaleaks.jobs import delivery_sched
-from globaleaks.jobs.notification_sched import NotificationSchedule
+from globaleaks.handlers import receiver, admin
+
 
 class TestReceiverInstance(helpers.TestHandlerWithPopulatedDB):
     _handler = receiver.ReceiverInstance
@@ -50,7 +45,7 @@ class TestReceiverInstance(helpers.TestHandlerWithPopulatedDB):
 
             yield handler.get()
 
-            self.responses[0]['gpg_key_remove'] = True
+            self.responses[0]['pgp_key_remove'] = True
 
             handler = self.request(self.responses[0], role='receiver')
             handler.current_user.user_id = rcvr['id']
@@ -79,36 +74,10 @@ class TestTipsCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
+        yield self.perform_full_submission_actions()
 
     @inlineCallbacks
     def test_get(self):
         handler = self.request(role='receiver')
         handler.current_user.user_id = self.dummyReceiver_1['id']
         yield handler.get()
-
-class TestNotificationCollection(helpers.TestHandlerWithPopulatedDB):
-    _handler = receiver.NotificationCollection
-
-    @inlineCallbacks
-    def setUp(self):
-        yield helpers.TestHandlerWithPopulatedDB.setUp(self)
-        yield self.perform_submission()
- 
-    @inlineCallbacks
-    def test_get(self):
-        handler = self.request(role='receiver')
-        handler.current_user.user_id = self.dummyReceiver_1['id']
-        yield handler.get()
-
-        self.assertEqual(len(self.responses), 1)
-        self.assertEqual(len(self.responses[0]['tips']), 1)
-        self.assertEqual(len(self.responses[0]['activities']), 5)
-
-    @inlineCallbacks
-    def test_delete(self):
-        handler = self.request(role='receiver')
-        handler.current_user.user_id = self.dummyReceiver_1['id']
-        yield handler.delete()
-
-        self.assertEqual(len(self.responses), 0)
