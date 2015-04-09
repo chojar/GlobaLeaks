@@ -1,19 +1,6 @@
 """
 Test database migrations.
 
-The following are the last tags for each db version:
- 5   2.24.8
- 6  2.27.24
- 7   2.30.1
- 8   2.50.8
- 9   2.52.3
-10   2.54.4
-11  2.54.16
-12  2.60.11
-13  2.60.14
-14  2.60.30
-15  2.60.44
-
 for each version one an empty and a populated db must be stored in directories:
  - db/empty
  - db/populated
@@ -21,13 +8,13 @@ for each version one an empty and a populated db must be stored in directories:
 """
 from __future__ import with_statement
 
-from cStringIO import StringIO
-import os
 import shutil
 
+import os
 from globaleaks.tests import helpers
-from globaleaks.db import base_updater, check_db_files
+from globaleaks.db import check_db_files
 from globaleaks.settings import GLSetting
+
 
 def test_dbs_migration(directory):
     GLSetting.gldb_path = 'db_test'    # path where check_db_files looks in

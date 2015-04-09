@@ -1,19 +1,19 @@
 # -*- coding: UTF-8
-#   GLBackend Database
+# GLBackend Database
 #   ******************
 from __future__ import with_statement
 
 import json
+
 import re
 import os
-
 from globaleaks.rest import errors, requests
 from globaleaks.settings import transact, transact_ro, GLSetting
 from globaleaks import models
 from globaleaks.security import get_salt, hash_password
-from globaleaks.utils.utility import datetime_now, datetime_null, log
 from globaleaks.third_party import rstr
-from globaleaks.models import Node, ApplicationData
+from globaleaks.models import Node
+
 
 def load_appdata():
     """
@@ -25,9 +25,9 @@ def load_appdata():
 
     # Fields and applicative data initialization
 
-    fields_l10n = [ "/usr/share/globaleaks/glclient/data/appdata_l10n.json",
-                    "../../../client/build/data/appdata_l10n.json",
-                    "../../../client/app/data/appdata_l10n.json"]
+    fields_l10n = ["/usr/share/globaleaks/glclient/data/appdata_l10n.json",
+                   "../../../client/build/data/appdata_l10n.json",
+                   "../../../client/app/data/appdata_l10n.json"]
 
     appdata_dict = None
 
@@ -37,7 +37,6 @@ def load_appdata():
         fl10n_file = os.path.join(this_directory, fl10n)
 
         if os.path.exists(fl10n_file):
-
             with file(fl10n_file, 'r') as f:
                 json_string = f.read()
                 appdata_dict = json.loads(json_string)
@@ -45,7 +44,7 @@ def load_appdata():
 
     if not appdata_dict:
         print "No client (appdata_l10n.json) file found in fixed paths!"
-        return dict({'version': 1, 'fields': []}) # empty!
+        return dict({'version': 1, 'fields': []})  # empty!
 
     return appdata_dict
 
@@ -72,17 +71,11 @@ def init_db(store, result, node_dict, appdata_dict):
     """
 
     node = models.Node(node_dict)
-
+    node.languages_enabled = GLSetting.defaults.languages_enabled
+    node.receipt_salt = get_salt(rstr.xeger('[A-Za-z0-9]{56}'))
+    node.wizard_done = GLSetting.skip_wizard
     for k in appdata_dict['node']:
         setattr(node, k, appdata_dict['node'][k])
-
-    node.languages_enabled = GLSetting.defaults.languages_enabled
-
-    node.receipt_salt = get_salt(rstr.xeger('[A-Za-z0-9]{56}'))
-
-    node.wizard_done = GLSetting.skip_wizard
-
-    node.creation_date = datetime_now()
 
     store.add(node)
 
@@ -101,34 +94,16 @@ def init_db(store, result, node_dict, appdata_dict):
     }
 
     admin = models.User(admin_dict)
-
-    admin.last_login = datetime_null()
-    admin.password_change_date = datetime_null()
-
     store.add(admin)
 
     notification = models.Notification()
-
-    # our defaults for free, because we're like Gandhi of the mail accounts.
-    notification.server = "mail.headstrong.de"
-    notification.port = 587
-    # port 587/SMTP-TLS or 465/SMTPS
-    notification.username = "sendaccount@lists.globaleaks.org"
-    notification.password = "sendaccount99"
-    notification.security = "TLS"
-
-    notification.source_name = "Default GlobaLeaks sender"
-    notification.source_email = notification.username
-
-    # Those fields are sets as default in order to show to the Admin the various
-    # 'variables' used in the template.
-
     for k in appdata_dict['templates']:
         setattr(notification, k, appdata_dict['templates'][k])
 
     store.add(notification)
 
-def db_import_memory_variables(store):
+
+def db_update_memory_variables(store):
     """
     to get fast checks, import (same) of the Node variable in GLSetting,
     this function is called every time that Node is updated.
@@ -161,8 +136,16 @@ def db_import_memory_variables(store):
         GLSetting.memory_copy.notif_password = notif.password
         GLSetting.memory_copy.notif_username = notif.username
         GLSetting.memory_copy.notif_security = notif.security
+
+        if GLSetting.developer_name:
+            GLSetting.memory_copy.notif_source_name = GLSetting.developer_name
+        else:
+            GLSetting.memory_copy.notif_source_name = notif.source_name
+
         GLSetting.memory_copy.notif_source_name = notif.source_name
         GLSetting.memory_copy.notif_source_email = notif.source_email
+        GLSetting.memory_copy.notif_uses_tor = notif.torify
+
         GLSetting.memory_copy.receiver_notif_enable = not notif.disable_receivers_notification_emails
         GLSetting.memory_copy.admin_notif_enable = not notif.disable_admin_notification_emails
 
@@ -170,9 +153,11 @@ def db_import_memory_variables(store):
     except Exception as e:
         raise errors.InvalidInputFormat("Cannot import memory variables: %s" % e)
 
+
 @transact_ro
 def import_memory_variables(*args):
-    return db_import_memory_variables(*args)
+    return db_update_memory_variables(*args)
+
 
 @transact
 def apply_cli_options(store):
@@ -190,19 +175,19 @@ def apply_cli_options(store):
         hs = GLSetting.unchecked_tor_input['hostname_tor_content'].split('.onion')[0]
         composed_t2w_url = 'https://%s.tor2web.org' % hs
 
-        if not (re.match(requests.hidden_service_regexp, composed_hs_url) or \
-                re.match(requests.https_url_regexp, composed_t2w_url)):
+        if not (re.match(requests.hidden_service_regexp, composed_hs_url) or
+                    re.match(requests.https_url_regexp, composed_t2w_url)):
             print "[!!] Invalid content found in the 'hostname' file specified (%s): Ignored" % \
                   GLSetting.unchecked_tor_input['hostname_tor_content']
         else:
-            accepted.update({ 'hidden_service' : unicode(composed_hs_url) })
+            accepted.update({'hidden_service': unicode(composed_hs_url)})
             print "[+] %s hidden service in the DB: %s" % (verb, composed_hs_url)
 
             if node.public_site:
                 print "[!!] Public Website (%s) is not automatically overwritten by (%s)" % \
                       (node.public_site, composed_t2w_url)
             else:
-                accepted.update({ 'public_site' : unicode(composed_t2w_url) })
+                accepted.update({'public_site': unicode(composed_t2w_url)})
                 print "[+] %s public site in the DB: %s" % (verb, composed_t2w_url)
 
             verb = "Overwriting"
@@ -212,14 +197,14 @@ def apply_cli_options(store):
             print "[!!] Invalid public site: %s: Ignored" % GLSetting.cmdline_options.public_website
         else:
             print "[+] %s public site in the DB: %s" % (verb, GLSetting.cmdline_options.public_website)
-            accepted.update({ 'public_site' : unicode(GLSetting.cmdline_options.public_website) })
+            accepted.update({'public_site': unicode(GLSetting.cmdline_options.public_website)})
 
     if GLSetting.cmdline_options.hidden_service:
         if not re.match(requests.hidden_service_regexp, GLSetting.cmdline_options.hidden_service):
             print "[!!] Invalid hidden service: %s: Ignored" % GLSetting.cmdline_options.hidden_service
         else:
             print "[+] %s hidden service in the DB: %s" % (verb, GLSetting.cmdline_options.hidden_service)
-            accepted.update({ 'hidden_service' : unicode(GLSetting.cmdline_options.hidden_service) })
+            accepted.update({'hidden_service': unicode(GLSetting.cmdline_options.hidden_service)})
 
     if accepted:
         node = store.find(Node).one()
@@ -230,6 +215,6 @@ def apply_cli_options(store):
     # return configured URL for the log/console output
     node = store.find(Node).one()
     if node.hidden_service or node.public_site:
-        return [ node.hidden_service, node.public_site ]
+        return [node.hidden_service, node.public_site]
     else:
         return None
