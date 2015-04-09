@@ -7,8 +7,8 @@
 # database table.
 
 from cyclone.util import ObjectDict as OD
-from storm.expr import Desc
-from twisted.internet.defer import inlineCallbacks, Deferred
+from storm.expr import Asc
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from globaleaks.models import EventLogs, Notification
 from globaleaks.handlers.admin import db_admin_serialize_node
@@ -39,15 +39,26 @@ class NotificationMail:
 
     @transact
     def every_notification_succeeded(self, store, result, event_id):
-        log.debug("Mail delivered correctly for event %s, [%s]" % (event_id, result))
-        evnt = store.find(EventLogs, EventLogs.id == event_id).one()
-        evnt.mail_sent = True
+        if event_id:
+            log.debug("Mail delivered correctly for event %s, [%s]" % (event_id, result))
+            evnt = store.find(EventLogs, EventLogs.id == event_id).one()
+            evnt.mail_sent = True
+        else:
+            log.debug("Mail digest correctly sent")
 
     @transact
     def every_notification_failed(self, store, failure, event_id):
-        log.err("Mail delivery failure for event %s (%s)" % (event_id, failure))
-        evnt = store.find(EventLogs, EventLogs.id == event_id).one()
-        evnt.mail_sent = True
+        if event_id:
+            log.err("Mail delivery failure for event %s (%s)" % (event_id, failure))
+            evnt = store.find(EventLogs, EventLogs.id == event_id).one()
+            evnt.mail_sent = True
+        else:
+            log.err("Mail error error")
+
+@transact
+def mark_event_as_notified_in_digest(store, evnt):
+    evnt = store.find(EventLogs, EventLogs.id == evnt.storm_id).one()
+    evnt.mail_sent = True
 
 
 @transact_ro
@@ -63,26 +74,19 @@ def load_complete_events(store, event_number=GLSetting.notification_limit):
 
     event_list = []
     storedevnts = store.find(EventLogs, EventLogs.mail_sent == False)
-    storedevnts.order_by(Desc(EventLogs.creation_date))
+    storedevnts.order_by(Asc(EventLogs.creation_date))
 
+    debug_event_counter = {}
     for i, stev in enumerate(storedevnts):
-
         if len(event_list) == event_number:
             log.debug("Maximum number of notification event reach (Mailflush) %d, after %d" %
-                      ( event_number, i ) )
+                      (event_number, i))
             break
 
-        if not stev.description['receiver_info']['file_notification'] and \
-                        stev.event_reference['kind'] == 'File':
-            continue
-        if not stev.description['receiver_info']['message_notification'] and \
-                        stev.event_reference['kind'] == 'Message':
-            continue
-        if not stev.description['receiver_info']['comment_notification'] and \
-                        stev.event_reference['kind'] == 'Comment':
-            continue
-        if not stev.description['receiver_info']['tip_notification'] and \
-                        stev.event_reference['kind'] == 'Tip':
+        debug_event_counter.setdefault(stev.event_reference['kind'], 0)
+        debug_event_counter[stev.event_reference['kind']] += 1
+
+        if not stev.description['receiver_info']['tip_notification']:
             continue
 
         eventcomplete = OD()
@@ -108,11 +112,15 @@ def load_complete_events(store, event_number=GLSetting.notification_limit):
 
         event_list.append(eventcomplete)
 
+    if debug_event_counter:
+        log.debug("load_complete_events: %s" % debug_event_counter)
+
     return event_list
 
 
 class MailflushSchedule(GLJob):
 
+    # sorry for the double negation, we are sleeping two seconds below.
     skip_sleep = False
 
     def ping_mail_flush(self, notification_settings, receivers_syntesis):
@@ -123,7 +131,7 @@ class MailflushSchedule(GLJob):
         ping email and send it via sendmail.
         """
 
-        for receiver_id, data in receivers_syntesis.iteritems():
+        for _, data in receivers_syntesis.iteritems():
 
             receiver_dict, winks = data
 
@@ -144,7 +152,10 @@ class MailflushSchedule(GLJob):
             title = Templating().format_template(
                 notification_settings['ping_mail_title'], fakeevent)
 
-            message = MIME_mail_build(GLSetting.memory_copy.notif_source_name,
+            # so comfortable for a developer!! :)
+            source_mail_name = GLSetting.developer_name if GLSetting.devel_mode \
+                else GLSetting.memory_copy.notif_source_name
+            message = MIME_mail_build(source_mail_name,
                                       GLSetting.memory_copy.notif_source_email,
                                       receiver_name,
                                       receiver_email,
@@ -167,29 +178,25 @@ class MailflushSchedule(GLJob):
     @inlineCallbacks
     def operation(self):
         if not GLSetting.memory_copy.receiver_notif_enable:
-            log.debug("MailFlush: Receiver notification disabled")
+            log.debug("MailFlush: Receiver(s) Notification disabled by Admin")
             return
 
         queue_events = yield load_complete_events()
 
         if not len(queue_events):
-            return
+            returnValue(None)
 
         plugin = getattr(notification, GLSetting.notification_plugins[0])()
+        # This wrap calls plugin/notification.MailNotification
         notifcb = NotificationMail(plugin)
 
-        for qe in queue_events:
-
+        for qe_pos, qe in enumerate(queue_events):
             yield notifcb.do_every_notification(qe)
 
             if not self.skip_sleep:
-                yield deferred_sleep(3)
-            # note, this settings has to be multiply for 3 (seconds in this iteration)
-            # and the results (notification_limit * 3) need to be shorter than the periodic running time
-            # specified in runner.py, that's why is set at FIVE minutes.
-            # the number of 'qe' is capped at GLSetting.notification_limit
+                yield deferred_sleep(2)
 
-        # TODO: implement ping as an appropriate plugin
+        # This is the notification of the ping, if configured
         receivers_synthesis = {}
         for qe in queue_events:
 
