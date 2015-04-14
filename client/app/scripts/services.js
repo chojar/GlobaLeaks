@@ -28,7 +28,7 @@ angular.module('resourceServices.authentication', [])
                   self.auth_landing_page = '/admin/landing';
               }
               if (self.role == 'receiver') {
-                self.homepage = '/#/receiver/activities';
+                self.homepage = '/#/receiver/tips';
                 if (self.password_change_needed) {
                     self.auth_landing_page = '/receiver/firstlogin';
                 } else {
@@ -447,14 +447,13 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
 
           commentsResource.query(tipID, function(commentsCollection){
             self.tip.comments = commentsCollection;
-            fn(self.tip);
-          });
 
-          messageResource.query(tipID, function(messageCollection){
-            self.tip.messages = messageCollection;
-            fn(self.tip);
-          });
+            messageResource.query(tipID, function(messageCollection){
+              self.tip.messages = messageCollection;
+              fn(self.tip);
+            });
 
+          });
         });
       });
 
@@ -513,7 +512,6 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
           self.tip.receivers = receiversCollection;
 
           Receivers.query(function(receivers) {
-
             forEach(self.tip.receivers, function(r1) {
               forEach(receivers, function(r2) {
                 if (r2.id == r1.id) {
@@ -527,16 +525,12 @@ angular.module('resourceServices', ['ngResource', 'resourceServices.authenticati
 
             commentsResource.query({}, function(commentsCollection){
               self.tip.comments = commentsCollection;
-
               fn(self.tip);
-
             });
 
           });
-
         });
       });
-
     };
 }]).
   factory('WhistleblowerTip', ['$rootScope',
