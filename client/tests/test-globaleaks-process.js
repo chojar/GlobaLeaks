@@ -25,10 +25,6 @@ describe("globaLeaks process", function() {
     await perform_submission();
   });
 
-  it("Whistleblowers should be able to submit tips (3)", async function() {
-    await perform_submission();
-  });
-
   it("Whistleblower should be able to access the last submission", async function() {
     await browser.gl.utils.login_whistleblower(receipts[0]);
     expect(await element(by.xpath("//*[contains(text(),'" + tip_text + "')]")).getText()).toEqual(tip_text);

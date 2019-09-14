@@ -40,36 +40,38 @@ describe("admin configure advanced settings", function() {
 });
 
 describe("admin disable submissions", function() {
-  it("should disable submission", async function() {
+  it("should disable submissions", async function() {
     await browser.setLocation("admin/advanced_settings");
     await element(by.cssContainingText("a", "Main configuration")).click();
 
     await element(by.model("admin.node.disable_submissions")).click();
 
-    // save settings
     await element.all(by.css("[data-ng-click=\"updateNode()\"]")).first().click();
 
     expect(await element(by.model("admin.node.disable_submissions")).isSelected()).toBeTruthy();
+  });
 
+  it("should verify that submissions are disabled", async function() {
     await browser.get("/#/");
 
     expect(await browser.isElementPresent(element(by.cssContainingText("span", "Submissions disabled")))).toBe(true);
+  });
 
+  it("should be able to re-enable submissions", async function() {
     await browser.gl.utils.login_admin();
 
     await browser.setLocation("admin/advanced_settings");
 
     await element(by.model("admin.node.disable_submissions")).click();
 
-    // save settings
     await element.all(by.css("[data-ng-click=\"updateNode()\"]")).first().click();
 
     expect(await element(by.model("admin.node.disable_submissions")).isSelected()).toBeFalsy();
+  });
 
+  it("should verify that submissions are enabled", async function() {
     await browser.get("/#/");
 
     expect(await browser.isElementPresent(element(by.cssContainingText("button", "Blow the whistle")))).toBe(true);
-
-    await browser.gl.utils.login_admin();
   });
 });

@@ -1,6 +1,7 @@
 describe("admin configure languages", function() {
   it("should configure languages", async function() {
     // Enable german and italian and then test the language selector
+    await browser.gl.utils.login_admin();
     await browser.setLocation("admin/content");
     await element(by.cssContainingText("a", "Languages")).click();
 
@@ -30,6 +31,7 @@ describe("admin configure languages", function() {
 
   it("should configure default language", async function() {
     // Set the default as german
+    await browser.gl.utils.login_admin();
     await browser.setLocation("admin/content");
     await element(by.cssContainingText("a", "Languages")).click();
 

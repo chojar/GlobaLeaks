@@ -1,5 +1,7 @@
 describe("admin configure, add, and delete tenants", function() {
   it("should add new tenant", async function() {
+    await browser.gl.utils.login_admin();
+
     await browser.setLocation("admin/tenants");
 
     var add_tenant = async function(tenant_label) {

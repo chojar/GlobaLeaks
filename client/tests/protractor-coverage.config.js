@@ -57,7 +57,6 @@ exports.config = {
       inline: {
         postTest: async function() {
           await browser.driver.executeScript("return __coverage__;").then(function(coverageResults) {
-            console.log(1);
             collector.add(coverageResults);
           });
         }
